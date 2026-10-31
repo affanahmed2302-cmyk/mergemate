@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>MergeMate — Evidence-first PR Intelligence</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script>tailwind.config={theme:{extend:{colors:{ink:'#0b1220',panel:'#111827',accent:'#38bdf8',good:'#34d399',warn:'#fbbf24',bad:'#f87171'}}}}</script>
+<style>
+  body{background:#0b1220;color:#e5e7eb;font-family:ui-sans-serif,system-ui,sans-serif}
+  .card{background:#111827;border:1px solid #1f2937;border-radius:1rem}
+  .badge{font-size:.7rem;padding:.15rem .5rem;border-radius:999px;font-weight:600}
+  .mono{font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
+  pre{white-space:pre-wrap;word-break:break-word}
+  .step-dot{width:.6rem;height:.6rem;border-radius:999px}
+</style>
+</head>
+<body class="min-h-screen">
+<header class="border-b border-gray-800 bg-ink/80 sticky top-0 z-20 backdrop-blur">
+  <div class="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between">
+    <div class="flex items-center gap-3">
+      <div class="w-9 h-9 rounded-xl bg-accent/20 flex items-center justify-center text-accent font-bold">M</div>
+      <div>
+        <div class="font-semibold tracking-tight">MergeMate</div>
+        <div class="text-xs text-gray-400">Evidence-first AI Pull Request Intelligence</div>
+      </div>
+    </div>
+    <div class="text-xs text-gray-500">ProofLayer · Developer Productivity</div>
+  </div>
+</header>
+
+<main class="max-w-6xl mx-auto px-4 py-8 space-y-8">
+  <!-- Hero / input -->
+  <section class="card p-6 md:p-8">
+    <h1 class="text-2xl md:text-3xl font-semibold mb-2">Review code with evidence.</h1>
+    <p class="text-gray-400 mb-6 max-w-2xl">Paste a GitHub Pull Request URL. MergeMate retrieves the real diff, runs deterministic checks + AI review, then validates every finding through <span class="text-accent">ProofLayer</span>.</p>
+    <div class="flex flex-col md:flex-row gap-3">
+      <input id="prUrl" type="text" placeholder="https://github.com/owner/repo/pull/42"
+        class="flex-1 rounded-xl bg-ink border border-gray-700 px-4 py-3 outline-none focus:border-accent" />
+      <button id="btnAnalyze" class="rounded-xl bg-accent text-ink font-semibold px-6 py-3 hover:opacity-90">Analyze PR</button>
+      <button id="btnDemo" class="rounded-xl border border-gray-600 px-6 py-3 hover:border-accent">Run labelled demo</button>
+    </div>
+    <p id="statusMsg" class="mt-3 text-sm text-gray-400"></p>
+  </section>
+
+  <!-- Summary -->
+  <section id="summarySection" class="hidden space-y-4">
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-3" id="statCards"></div>
+    <div class="card p-5" id="execSummary"></div>
+    <div class="grid md:grid-cols-2 gap-4">
+      <div class="card p-5" id="scorecardPanel"></div>
+      <div class="card p-5" id="riskPanel"></div>
+    </div>
+  </section>
+
+  <!-- Findings -->
+  <section id="findingsSection" class="hidden">
+    <div class="flex items-center justify-between mb-3">
+      <h2 class="text-lg font-semibold">Findings explorer</h2>
+      <div class="flex gap-2 text-xs">
+        <button data-filter="all" class="filter-btn badge bg-gray-700">All</button>
+        <button data-filter="supported_by_static_check" class="filter-btn badge bg-good/20 text-good">Static-supported</button>
+        <button data-filter="unverified" class="filter-btn badge bg-warn/20 text-warn">Unverified AI</button>
+        <button data-filter="needs_human_review" class="filter-btn badge bg-accent/20 text-accent">Human review</button>
+      </div>
+    </div>
+    <div id="findingsList" class="space-y-3"></div>
+  </section>
+
+  <!-- Tests + export -->
+  <section id="extraSection" class="hidden grid md:grid-cols-2 gap-4">
+    <div class="card p-5">
+      <h3 class="font-semibold mb-2">Test intelligence</h3>
+      <p class="text-xs text-gray-500 mb-3">Suggestions only — <strong>not executed</strong>.</p>
+      <ul id="testList" class="space-y-2 text-sm"></ul>
+    </div>
+    <div class="card p-5">
+      <h3 class="font-semibold mb-2">Reports</h3>
+      <div class="flex gap-2">
+        <button id="btnMd" class="rounded-lg border border-gray-600 px-4 py-2 text-sm hover:border-accent">Download Markdown</button>
+        <button id="btnJson" class="rounded-lg border border-gray-600 px-4 py-2 text-sm hover:border-accent">Download JSON</button>
+      </div>
+      <p class="text-xs text-gray-500 mt-3">Share findings with teammates without claiming verification you don't have.</p>
+    </div>
+  </section>
+</main>
+
+<footer class="max-w-6xl mx-auto px-4 py-8 text-xs text-gray-600 border-t border-gray-900">
+  MergeMate · ProofLayer · No finding is presented as verified without evidence · MIT
+</footer>
+
+<script>
+const API = localStorage.getItem('mm_api') || 'http://localhost:8000';
+let current = null;
+let filter = 'all';
+
+const $ = (id) => document.getElementById(id);
+const status = (msg, isErr) => { $('statusMsg').textContent = msg; $('statusMsg').className = 'mt-3 text-sm ' + (isErr ? 'text-bad' : 'text-gray-400'); };
+
+function badgeForStatus(s) {
+  const map = {
+    supported_by_static_check: 'bg-good/20 text-good',
+    unverified: 'bg-warn/20 text-warn',
+    needs_human_review: 'bg-accent/20 text-accent',
+    rejected: 'bg-bad/20 text-bad',
+    test_confirmed: 'bg-good/20 text-good',
+  };
+  return map[s] || 'bg-gray-700';
+}
+
+function render(review) {
+  current = review;
+  $('summarySection').classList.remove('hidden');
+  $('findingsSection').classList.remove('hidden');
+  $('extraSection').classList.remove('hidden');
+
+  const findings = review.findings || [];
+  const staticN = findings.filter(f => f.verification_status === 'supported_by_static_check').length;
+  const aiN = findings.filter(f => f.verification_status === 'unverified').length;
+  const humanN = findings.filter(f => f.verification_status === 'needs_human_review').length;
+
+  $('statCards').innerHTML = [
+    ['Findings', findings.length, 'text-white'],
+    ['Static-supported', staticN, 'text-good'],
+    ['AI unverified', aiN, 'text-warn'],
+    ['Human review', humanN, 'text-accent'],
+  ].map(([l,v,c]) => `<div class="card p-4"><div class="text-xs text-gray-500">${l}</div><div class="text-2xl font-semibold ${c}">${v}</div></div>`).join('');
+
+  $('execSummary').innerHTML = `<h3 class="font-semibold mb-1">Executive summary</h3><p class="text-sm text-gray-300">${review.executive_summary || '—'}</p>` +
+    (review.pr_info ? `<p class="text-xs text-gray-500 mt-2 mono">${review.pr_info.owner}/${review.pr_info.repo}#${review.pr_info.number} · ${review.pr_info.title}</p>` : '');
+
+  if (review.scorecard) {
+    const sc = review.scorecard;
+    $('scorecardPanel').innerHTML = `
+      <h3 class="font-semibold mb-2">Intelligence Scorecard</h3>
+      <div class="space-y-2 text-sm">
+        <div class="flex justify-between"><span>Evidence coverage</span><span class="text-accent">${Math.round(sc.evidence_coverage*100)}%</span></div>
+        <div class="flex justify-between"><span>Static analysis coverage</span><span>${Math.round(sc.static_analysis_coverage*100)}%</span></div>
+        <div class="flex justify-between"><span>Unverified ratio</span><span class="text-warn">${Math.round(sc.unverified_ratio*100)}%</span></div>
+      </div>
+      <p class="text-xs text-gray-500 mt-3">${sc.disclaimer}</p>`;
+  }
+
+  if (review.risk) {
+    const r = review.risk;
+    $('riskPanel').innerHTML = `
+      <h3 class="font-semibold mb-2">Risk indicator</h3>
+      <div class="text-3xl font-semibold mb-1 ${r.level==='high'?'text-bad':r.level==='medium'?'text-warn':'text-good'}">${r.score} <span class="text-sm font-normal text-gray-400">(${r.level})</span></div>
+      <p class="text-xs mono text-gray-500 mb-2">${r.formula}</p>
+      <ul class="text-xs space-y-1 text-gray-400">${(r.factors||[]).map(f=>`<li>${f.explanation}</li>`).join('')}</ul>
+      <p class="text-xs text-gray-500 mt-3">${r.disclaimer}</p>`;
+  }
+
+  renderFindings();
+  $('testList').innerHTML = (review.test_suggestions||[]).map(t =>
+    `<li class="border border-gray-800 rounded-lg p-2"><div class="font-medium">${t.title}</div><div class="text-gray-500 text-xs">${t.rationale} · executed: <span class="text-warn">false</span></div></li>`
+  ).join('') || '<li class="text-gray-500">No suggestions</li>';
+}
+
+function renderFindings() {
+  const list = (current.findings||[]).filter(f => filter==='all' || f.verification_status===filter);
+  $('findingsList').innerHTML = list.map(f => {
+    const steps = (f.proof_steps||[]).map(s =>
+      `<div class="flex gap-2 items-start text-xs"><span class="step-dot mt-1 ${s.status==='passed'?'bg-good':s.status==='partial'?'bg-warn':'bg-bad'}"></span><div><span class="text-gray-300">${s.step}. ${s.name}</span> — <span class="text-gray-500">${s.detail}</span></div></div>`
+    ).join('');
+    return `<div class="card p-4">
+      <div class="flex flex-wrap items-center gap-2 mb-2">
+        <span class="font-medium">${f.title}</span>
+        <span class="badge ${badgeForStatus(f.verification_status)}">${f.verification_status}</span>
+        <span class="badge bg-gray-800">${f.source}</span>
+        <span class="badge bg-gray-800">${f.severity}</span>
+      </div>
+      <p class="text-sm text-gray-300 mb-2">${f.explanation}</p>
+      <p class="text-xs mono text-gray-500 mb-2">${f.file_path||'n/a'} · evidence: <code class="text-gray-400">${(f.evidence&&f.evidence.excerpt)||'none'}</code></p>
+      <details class="mt-2">
+        <summary class="text-xs text-accent cursor-pointer">ProofLayer — Review Replay</summary>
+        <div class="mt-2 space-y-1 border-l border-gray-700 pl-3">${steps||'<span class="text-xs text-gray-500">No steps</span>'}</div>
+      </details>
+      <div class="mt-3 flex gap-2 text-xs">
+        <button onclick="sendFeedback('${f.id}','useful')" class="badge bg-good/10 text-good border border-good/30">Useful</button>
+        <button onclick="sendFeedback('${f.id}','incorrect')" class="badge bg-bad/10 text-bad border border-bad/30">Incorrect</button>
+        <button onclick="sendFeedback('${f.id}','disputed')" class="badge bg-warn/10 text-warn border border-warn/30">Disputed</button>
+        ${f.feedback?`<span class="text-gray-500">Feedback: ${f.feedback}</span>`:''}
+      </div>
+    </div>`;
+  }).join('') || '<p class="text-gray-500">No findings for this filter.</p>';
+}
+
+async function analyze(url, demo=false) {
+  status(demo ? 'Running labelled demo…' : 'Analyzing PR…');
+  try {
+    const r = await fetch(API + '/api/v1/reviews', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({pr_url: url, demo})
+    });
+    const data = await r.json();
+    if (!r.ok) throw new Error(data.message || data.detail || 'Request failed');
+    status(data.is_demo ? 'Demo complete — labelled sample data' : 'Analysis complete');
+    render(data);
+  } catch (e) {
+    status(String(e.message || e), true);
+  }
+}
+
+async function sendFeedback(fid, fb) {
+  if (!current) return;
+  try {
+    await fetch(`${API}/api/v1/reviews/${current.id}/findings/${fid}/feedback`, {
+      method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({feedback: fb})
+    });
+    const f = current.findings.find(x => x.id === fid);
+    if (f) f.feedback = fb;
+    renderFindings();
+  } catch (e) { status(String(e), true); }
+}
+
+$('btnAnalyze').onclick = () => {
+  const url = $('prUrl').value.trim();
+  if (!url) return status('Enter a GitHub PR URL', true);
+  analyze(url, false);
+};
+$('btnDemo').onclick = () => analyze('demo', true);
+
+document.querySelectorAll('.filter-btn').forEach(b => b.onclick = () => { filter = b.dataset.filter; renderFindings(); });
+
+$('btnMd').onclick = async () => {
+  if (!current) return;
+  const r = await fetch(`${API}/api/v1/reviews/${current.id}/report.md`);
+  const text = await r.text();
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([text], {type:'text/markdown'}));
+  a.download = `mergemate-${current.id}.md`;
+  a.click();
+};
+$('btnJson').onclick = () => {
+  if (!current) return;
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([JSON.stringify(current, null, 2)], {type:'application/json'}));
+  a.download = `mergemate-${current.id}.json`;
+  a.click();
+};
+</script>
+</body>
+</html>
