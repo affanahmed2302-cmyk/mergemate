@@ -1,1 +1,198 @@
-PLACEHOLDER
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>MergeMate — AI code reviews. Backed by evidence.</title>
+<meta name="description" content="Evidence-first AI Pull Request intelligence. ProofLayer distinguishes AI suggestions from findings supported by real code evidence." />
+<meta property="og:title" content="MergeMate — Evidence-first PR intelligence" />
+<meta property="og:description" content="Know which AI review findings deserve your trust. Powered by ProofLayer." />
+<meta property="og:type" content="website" />
+<meta name="theme-color" content="#0a0e17" />
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='8' fill='%230a0e17'/><text x='16' y='22' text-anchor='middle' font-size='16' font-family='sans-serif' font-weight='700' fill='%2338bdf8'>M</text></svg>" />
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+tailwind.config={theme:{extend:{colors:{ink:'#0a0e17',panel:'#111827',line:'#1e293b',muted:'#94a3b8',accent:'#38bdf8',good:'#34d399',warn:'#fbbf24',bad:'#f87171'}}}}
+</script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<style>
+body{background:#0a0e17;color:#e2e8f0;font-family:Inter,system-ui,sans-serif}
+.card{background:#111827;border:1px solid #1e293b;border-radius:12px}
+.badge{font-size:.65rem;letter-spacing:.02em;padding:.2rem .55rem;border-radius:999px;font-weight:600;text-transform:uppercase}
+.btn-primary{background:#38bdf8;color:#0a0e17;font-weight:600}
+.btn-primary:hover{filter:brightness(1.08)}
+.btn-primary:disabled{opacity:.5;cursor:not-allowed;filter:none}
+.btn-ghost{border:1px solid #334155}
+.btn-ghost:hover{border-color:#38bdf8;color:#38bdf8}
+.nav-link{color:#94a3b8}.nav-link:hover,.nav-link.active{color:#fff}
+.step-dot{width:.55rem;height:.55rem;border-radius:999px;flex-shrink:0}
+.spinner{width:1rem;height:1rem;border:2px solid #334155;border-top-color:#38bdf8;border-radius:50%;animation:spin .7s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.fade{animation:fade .2s ease-out}@keyframes fade{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
+a{text-decoration:none}
+</style>
+</head>
+<body class="min-h-screen antialiased">
+<header class="sticky top-0 z-40 border-b border-line bg-ink/90 backdrop-blur-md">
+  <div class="max-w-6xl mx-auto px-4 h-14 flex items-center justify-between gap-4">
+    <a href="/" data-link class="flex items-center gap-2.5 shrink-0">
+      <div class="w-8 h-8 rounded-lg bg-accent/15 border border-accent/30 flex items-center justify-center text-accent text-sm font-bold">M</div>
+      <div class="leading-tight"><div class="text-sm font-semibold">MergeMate</div><div class="text-[10px] text-muted">ProofLayer</div></div>
+    </a>
+    <nav class="hidden md:flex items-center gap-5 text-xs">
+      <a href="/features" data-link class="nav-link">Features</a>
+      <a href="/prooflayer" data-link class="nav-link">ProofLayer</a>
+      <a href="/how-it-works" data-link class="nav-link">How it works</a>
+      <a href="/demo" data-link class="nav-link">Demo</a>
+      <a href="/docs" data-link class="nav-link">Docs</a>
+      <a href="/about" data-link class="nav-link">About</a>
+    </nav>
+    <div class="flex items-center gap-2">
+      <a href="/app" data-link class="btn-ghost rounded-lg px-3 py-1.5 text-xs hidden sm:inline-block">Open app</a>
+      <a href="/app/review" data-link class="btn-primary rounded-lg px-3 py-1.5 text-xs">Review a PR</a>
+    </div>
+  </div>
+</header>
+<div id="appShell" class="max-w-6xl mx-auto px-4 py-8 fade"></div>
+<footer class="border-t border-line mt-auto"><div class="max-w-6xl mx-auto px-4 py-8 text-xs text-muted">MergeMate · MIT · <a class="text-accent" href="https://github.com/affanahmed2302-cmyk/mergemate">GitHub</a></div></footer>
+<script>
+const API = () => {
+  const stored = localStorage.getItem('mm_api');
+  if (stored !== null && stored !== '') return stored;
+  const h = location.hostname;
+  if (h !== 'localhost' && h !== '127.0.0.1') return '';
+  return location.port === '8000' ? '' : 'http://localhost:8000';
+};
+let currentReview = null;
+let findingsFilter = 'all';
+const esc = (s) => { const d = document.createElement('div'); d.textContent = s == null ? '' : String(s); return d.innerHTML; };
+const shell = () => document.getElementById('appShell');
+function statusBadge(s) {
+  const map = {
+    supported_by_static_check: ['Static-supported','bg-good/15 text-good'],
+    unverified: ['Unverified','bg-warn/15 text-warn'],
+    needs_human_review: ['Human review','bg-accent/15 text-accent'],
+    rejected: ['Rejected','bg-bad/15 text-bad'],
+  };
+  const [label, cls] = map[s] || [s, 'bg-slate-700 text-slate-300'];
+  return `<span class="badge ${cls}">${label}</span>`;
+}
+async function api(path, opts) {
+  const r = await fetch(API() + path, opts);
+  let data = null;
+  const ct = r.headers.get('content-type') || '';
+  if (ct.includes('application/json')) data = await r.json();
+  else data = await r.text();
+  if (!r.ok) throw new Error((data && data.message) || (data && data.detail) || `HTTP ${r.status}`);
+  return data;
+}
+async function navigate(path) { history.pushState({}, '', path); await render(); }
+function reviewForm() {
+  return `<div class="card p-5">
+    <label class="block text-xs text-muted mb-2">GitHub Pull Request URL</label>
+    <div class="flex flex-col sm:flex-row gap-2">
+      <input id="prUrl" type="url" placeholder="https://github.com/owner/repo/pull/42" class="flex-1 rounded-lg bg-ink border border-line px-3.5 py-2.5 text-sm outline-none focus:border-accent" value="https://github.com/octocat/Hello-World/pull/1" />
+      <button id="btnAnalyze" class="btn-primary rounded-lg px-5 py-2.5 text-sm">Analyse PR</button>
+    </div>
+    <div class="flex flex-wrap items-center gap-3 mt-3">
+      <button id="btnDemo" class="btn-ghost rounded-lg px-4 py-2 text-xs text-muted">Run labelled demo</button>
+      <span id="formStatus" class="text-xs text-muted"></span>
+    </div>
+  </div>`;
+}
+function renderFindingsList(findings) {
+  const list = findings || [];
+  if (!list.length) return `<div class="card p-6 text-center text-sm text-muted">No findings.</div>`;
+  return list.map(f => {
+    const steps = (f.proof_steps || []).map(s =>
+      `<div class="flex gap-2.5 items-start text-xs"><span class="step-dot mt-1 ${s.status==='passed'?'bg-good':'bg-warn'}"></span><div><div class="text-slate-300">${s.step}. ${esc(s.name)}</div><div class="text-muted">${esc(s.detail)}</div></div></div>`).join('');
+    return `<article class="card p-4 space-y-2">
+      <div class="flex flex-wrap items-center gap-2"><h4 class="text-sm font-semibold">${esc(f.title)}</h4>${statusBadge(f.verification_status)}<span class="badge bg-slate-800 text-slate-400">${esc(f.source)}</span></div>
+      <p class="text-sm text-slate-300">${esc(f.explanation)}</p>
+      <p class="text-[11px] font-mono text-muted">${esc(f.file_path || 'n/a')}</p>
+      <p class="text-[11px] text-muted">Evidence: <code class="text-slate-400">${esc((f.evidence && f.evidence.excerpt) || 'none')}</code></p>
+      <details><summary class="text-xs text-accent cursor-pointer">ProofLayer — Review Replay</summary><div class="mt-2 space-y-2 border-l border-line pl-3">${steps}</div></details>
+    </article>`;
+  }).join('');
+}
+function fullReviewView(review) {
+  currentReview = review;
+  const findings = review.findings || [];
+  const staticN = findings.filter(f => f.verification_status === 'supported_by_static_check').length;
+  const aiN = findings.filter(f => f.verification_status === 'unverified').length;
+  const pi = review.pr_info;
+  return `${review.is_demo ? `<div class="badge bg-warn/15 text-warn border border-warn/30 mb-3 inline-block">Labelled demo data</div>` : ''}
+    <h2 class="text-lg font-semibold mb-4">Review results</h2>
+    <p class="text-xs font-mono text-muted mb-4">${pi ? esc(pi.owner+'/'+pi.repo+'#'+pi.number) : esc(review.pr_url)}</p>
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
+      ${[['Findings', findings.length],['Static-supported', staticN],['AI unverified', aiN],['Status', review.status]].map(([l,v]) => `<div class="card p-4"><div class="text-[11px] text-muted">${l}</div><div class="text-xl font-semibold mt-1">${v}</div></div>`).join('')}
+    </div>
+    <div class="card p-5 mb-4"><h3 class="text-sm font-semibold mb-2">Executive summary</h3><p class="text-sm text-slate-300">${esc(review.executive_summary || '—')}</p></div>
+    <div class="space-y-3">${renderFindingsList(findings)}</div>
+    <div class="card p-5 mt-4"><button type="button" id="btnMd" class="btn-ghost rounded-lg px-4 py-2 text-xs">Export Markdown</button></div>`;
+}
+async function runAnalyze(url, demo) {
+  const st = document.getElementById('formStatus');
+  const btnA = document.getElementById('btnAnalyze');
+  const btnD = document.getElementById('btnDemo');
+  if (btnA) btnA.disabled = true;
+  if (btnD) btnD.disabled = true;
+  if (st) st.innerHTML = `<span class="inline-flex items-center gap-2"><span class="spinner"></span>${demo?'Running labelled demo…':'Analysing…'}</span>`;
+  try {
+    const data = await api('/api/v1/reviews', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ pr_url: url, demo: !!demo }) });
+    currentReview = data;
+    shell().innerHTML = fullReviewView(data);
+    bindReview();
+  } catch (e) {
+    if (st) st.innerHTML = `<span class="text-bad">${esc(e.message || e)}</span>`;
+  } finally {
+    if (btnA) btnA.disabled = false;
+    if (btnD) btnD.disabled = false;
+  }
+}
+function bindReview() {
+  const md = document.getElementById('btnMd');
+  if (md && currentReview) md.onclick = async () => {
+    const text = await api(`/api/v1/reviews/${currentReview.id}/report.md`);
+    const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([text], {type:'text/markdown'})); a.download = 'mergemate-report.md'; a.click();
+  };
+}
+function bindForm() {
+  const btnA = document.getElementById('btnAnalyze');
+  const btnD = document.getElementById('btnDemo');
+  if (btnA) btnA.onclick = () => runAnalyze(document.getElementById('prUrl').value.trim(), false);
+  if (btnD) btnD.onclick = () => runAnalyze('demo', true);
+}
+async function render() {
+  const path = location.pathname;
+  if (path === '/' || path === '') {
+    shell().innerHTML = `<div class="text-center py-16">
+      <p class="text-xs text-accent font-semibold tracking-widest mb-3">EVIDENCE-FIRST PR INTELLIGENCE</p>
+      <h1 class="text-4xl md:text-5xl font-bold mb-4">AI code reviews.<br><span class="text-accent">Backed by evidence.</span></h1>
+      <p class="text-muted max-w-xl mx-auto mb-8">MergeMate uses <strong class="text-white">ProofLayer</strong> so AI findings are never presented as verified without support.</p>
+      <div class="flex flex-wrap justify-center gap-3">
+        <a href="/demo" data-link class="btn-primary rounded-lg px-5 py-2.5 text-sm">Run labelled demo</a>
+        <a href="/app/review" data-link class="btn-ghost rounded-lg px-5 py-2.5 text-sm">Review a PR</a>
+      </div>
+    </div>`;
+  } else if (path === '/demo' || path === '/app/review') {
+    shell().innerHTML = `<div class="mb-4 text-xs text-warn">Labelled demo uses sample data. Not a live GitHub analysis when you click Run labelled demo.</div>${reviewForm()}`;
+    bindForm();
+  } else if (path === '/prooflayer') {
+    shell().innerHTML = `<h1 class="text-2xl font-semibold mb-4">ProofLayer</h1><p class="text-sm text-muted mb-4">Independent evidence validation for every finding. AI observations stay <strong class="text-warn">unverified</strong> unless supported by real evidence.</p><ol class="space-y-2 text-sm text-slate-300 list-decimal ml-5"><li>Source recorded</li><li>File path must exist in PR</li><li>Evidence excerpt checked</li><li>Support assessment</li><li>Honest final status</li></ol>`;
+  } else {
+    shell().innerHTML = `${reviewForm()}<p class="text-xs text-muted mt-4">Path: ${esc(path)}</p>`;
+    bindForm();
+  }
+}
+document.addEventListener('click', (e) => {
+  const a = e.target.closest('a[data-link]');
+  if (!a) return;
+  e.preventDefault();
+  navigate(a.getAttribute('href'));
+});
+window.addEventListener('popstate', () => render());
+render();
+</script>
+</body>
+</html>
