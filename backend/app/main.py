@@ -12,10 +12,15 @@ from app.core.exceptions import MergeMateError
 from app.schemas.common import ErrorResponse, HealthResponse
 
 settings = get_settings()
+
+# OpenAPI UI under /api/* so public site can own /docs
 app = FastAPI(
     title="MergeMate API",
     description="Evidence-first AI Pull Request Intelligence — ProofLayer",
     version="0.2.0",
+    docs_url="/api/docs",
+    redoc_url="/api/redoc",
+    openapi_url="/api/openapi.json",
 )
 
 app.add_middleware(
@@ -59,7 +64,6 @@ async def demo_hint():
     }
 
 
-# Serve the product website + app (SPA)
 FRONTEND_DIR = Path(__file__).resolve().parents[2] / "frontend"
 INDEX = FRONTEND_DIR / "index.html"
 
@@ -73,15 +77,14 @@ if FRONTEND_DIR.is_dir():
 async def spa_root():
     if INDEX.is_file():
         return FileResponse(INDEX)
-    return JSONResponse({"message": "Frontend not found. Open frontend/index.html or mount correctly."})
+    return JSONResponse({"message": "Frontend not found"}, status_code=404)
 
 
 @app.get("/{full_path:path}")
 async def spa_fallback(full_path: str):
-    """SPA fallback for public + /app routes. API paths are registered above."""
-    if full_path.startswith("api/") or full_path in {"health", "docs", "openapi.json", "redoc"}:
+    # Never swallow API or health
+    if full_path == "health" or full_path.startswith("api/"):
         return JSONResponse({"detail": "Not found"}, status_code=404)
-    # Prefer exact static file if present
     candidate = FRONTEND_DIR / full_path
     if candidate.is_file():
         return FileResponse(candidate)
