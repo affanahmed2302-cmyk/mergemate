@@ -1,12 +1,9 @@
-# Security
+# Security notes
 
-- Repository content is untrusted.
-- No repository code is ever executed on the server.
-- Only github.com host is accepted (SSRF protection).
-- Secrets only via environment variables; never committed.
-- AI findings are never marked verified without independent evidence.
-
-## Known limitations
-- No API authentication (hackathon MVP).
-- In-memory store.
-- Deterministic rules are pattern-based.
+- Only `github.com` PR URLs are accepted (SSRF protection via strict URL parser).
+- Repository code is **never executed** on the MergeMate server.
+- AI findings are always labelled `unverified` unless independently corroborated by deterministic evidence.
+- Secrets must live in environment variables (`.env`); never commit tokens.
+- In-memory store — reviews disappear on process restart (intentional MVP).
+- No authentication on the API in this release — treat as a local/demo tool.
+- Report exports contain only analysis results, not repository secrets (excerpts may still show patterns that matched secret detectors; redact before sharing externally if needed).
