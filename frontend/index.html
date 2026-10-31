@@ -3,90 +3,217 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>MergeMate — Evidence-first PR Intelligence</title>
+<title>MergeMate — AI code reviews. Backed by evidence.</title>
+<meta name="description" content="Evidence-first AI Pull Request intelligence. ProofLayer distinguishes AI suggestions from findings supported by real code evidence." />
 <script src="https://cdn.tailwindcss.com"></script>
-<script>tailwind.config={theme:{extend:{colors:{ink:'#0b1220',panel:'#111827',accent:'#38bdf8',good:'#34d399',warn:'#fbbf24',bad:'#f87171'}}}}</script>
+<script>
+tailwind.config = {
+  theme: {
+    extend: {
+      colors: {
+        ink: '#0a0e17',
+        panel: '#111827',
+        panel2: '#0f1623',
+        line: '#1e293b',
+        muted: '#94a3b8',
+        accent: '#38bdf8',
+        good: '#34d399',
+        warn: '#fbbf24',
+        bad: '#f87171',
+      },
+      fontFamily: {
+        sans: ['Inter', 'ui-sans-serif', 'system-ui', 'sans-serif'],
+        mono: ['ui-monospace', 'SFMono-Regular', 'Menlo', 'monospace'],
+      }
+    }
+  }
+}
+</script>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
 <style>
-  body{background:#0b1220;color:#e5e7eb;font-family:ui-sans-serif,system-ui,sans-serif}
-  .card{background:#111827;border:1px solid #1f2937;border-radius:1rem}
-  .badge{font-size:.7rem;padding:.15rem .5rem;border-radius:999px;font-weight:600}
-  .mono{font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
-  pre{white-space:pre-wrap;word-break:break-word}
-  .step-dot{width:.6rem;height:.6rem;border-radius:999px}
+  body { background: #0a0e17; color: #e2e8f0; }
+  .card { background: #111827; border: 1px solid #1e293b; border-radius: 12px; }
+  .badge { font-size: 0.65rem; letter-spacing: 0.02em; padding: 0.2rem 0.55rem; border-radius: 999px; font-weight: 600; text-transform: uppercase; }
+  .step-dot { width: 0.55rem; height: 0.55rem; border-radius: 999px; flex-shrink: 0; }
+  .btn-primary { background: #38bdf8; color: #0a0e17; font-weight: 600; }
+  .btn-primary:hover { filter: brightness(1.08); }
+  .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; filter: none; }
+  .btn-ghost { border: 1px solid #334155; }
+  .btn-ghost:hover { border-color: #38bdf8; color: #38bdf8; }
+  details summary { list-style: none; }
+  details summary::-webkit-details-marker { display: none; }
+  .fade-in { animation: fadeIn 0.25s ease-out; }
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+  .spinner { width: 1rem; height: 1rem; border: 2px solid #334155; border-top-color: #38bdf8; border-radius: 50%; animation: spin 0.7s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
 </style>
 </head>
-<body class="min-h-screen">
-<header class="border-b border-gray-800 bg-ink/80 sticky top-0 z-20 backdrop-blur">
-  <div class="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between">
-    <div class="flex items-center gap-3">
-      <div class="w-9 h-9 rounded-xl bg-accent/20 flex items-center justify-center text-accent font-bold">M</div>
+<body class="min-h-screen font-sans antialiased">
+
+<!-- Header -->
+<header class="sticky top-0 z-30 border-b border-line bg-ink/90 backdrop-blur-md">
+  <div class="max-w-5xl mx-auto px-4 h-14 flex items-center justify-between">
+    <a href="#" class="flex items-center gap-2.5" onclick="showLanding()">
+      <div class="w-8 h-8 rounded-lg bg-accent/15 border border-accent/30 flex items-center justify-center text-accent text-sm font-bold">M</div>
       <div>
-        <div class="font-semibold tracking-tight">MergeMate</div>
-        <div class="text-xs text-gray-400">Evidence-first AI Pull Request Intelligence</div>
+        <div class="text-sm font-semibold tracking-tight leading-none">MergeMate</div>
+        <div class="text-[10px] text-muted mt-0.5">ProofLayer</div>
       </div>
-    </div>
-    <div class="text-xs text-gray-500">ProofLayer · Developer Productivity</div>
+    </a>
+    <nav class="hidden sm:flex items-center gap-5 text-xs text-muted">
+      <a href="#how" class="hover:text-white transition">How it works</a>
+      <a href="#prooflayer" class="hover:text-white transition">ProofLayer</a>
+      <a href="https://github.com/affanahmed2302-cmyk/mergemate" target="_blank" rel="noopener" class="hover:text-white transition">GitHub</a>
+    </nav>
   </div>
 </header>
 
-<main class="max-w-6xl mx-auto px-4 py-8 space-y-8">
-  <!-- Hero / input -->
-  <section class="card p-6 md:p-8">
-    <h1 class="text-2xl md:text-3xl font-semibold mb-2">Review code with evidence.</h1>
-    <p class="text-gray-400 mb-6 max-w-2xl">Paste a GitHub Pull Request URL. MergeMate retrieves the real diff, runs deterministic checks + AI review, then validates every finding through <span class="text-accent">ProofLayer</span>.</p>
-    <div class="flex flex-col md:flex-row gap-3">
-      <input id="prUrl" type="text" placeholder="https://github.com/owner/repo/pull/42"
-        class="flex-1 rounded-xl bg-ink border border-gray-700 px-4 py-3 outline-none focus:border-accent" />
-      <button id="btnAnalyze" class="rounded-xl bg-accent text-ink font-semibold px-6 py-3 hover:opacity-90">Analyze PR</button>
-      <button id="btnDemo" class="rounded-xl border border-gray-600 px-6 py-3 hover:border-accent">Run labelled demo</button>
+<main class="max-w-5xl mx-auto px-4 pb-16">
+
+  <!-- LANDING -->
+  <section id="landing" class="pt-10 md:pt-14 space-y-14">
+    <!-- Hero -->
+    <div class="text-center max-w-2xl mx-auto">
+      <p class="text-accent text-xs font-medium tracking-wide uppercase mb-3">Evidence-first PR intelligence</p>
+      <h1 class="text-3xl md:text-4xl font-semibold tracking-tight leading-tight mb-4">
+        AI code reviews.<br class="hidden sm:block" /> <span class="text-accent">Backed by evidence.</span>
+      </h1>
+      <p class="text-muted text-sm md:text-base leading-relaxed mb-8">
+        MergeMate analyses GitHub pull requests and uses <strong class="text-slate-200">ProofLayer</strong>
+        to distinguish AI suggestions from findings supported by real code evidence.
+      </p>
+
+      <!-- PR form -->
+      <div class="card p-4 md:p-5 text-left">
+        <label for="prUrl" class="block text-xs text-muted mb-2">GitHub Pull Request URL</label>
+        <div class="flex flex-col sm:flex-row gap-2">
+          <input id="prUrl" type="url" placeholder="https://github.com/owner/repo/pull/42"
+            class="flex-1 rounded-lg bg-ink border border-line px-3.5 py-2.5 text-sm outline-none focus:border-accent placeholder:text-slate-600"
+            autocomplete="off" />
+          <button id="btnAnalyze" class="btn-primary rounded-lg px-5 py-2.5 text-sm whitespace-nowrap">Review a Pull Request</button>
+        </div>
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mt-3">
+          <button id="btnDemo" class="btn-ghost rounded-lg px-4 py-2 text-xs text-muted">Explore labelled demo</button>
+          <p id="statusMsg" class="text-xs text-muted flex items-center gap-2 min-h-[1.25rem]"></p>
+        </div>
+      </div>
     </div>
-    <p id="statusMsg" class="mt-3 text-sm text-gray-400"></p>
+
+    <!-- How it works -->
+    <div id="how" class="grid sm:grid-cols-3 gap-4">
+      <div class="card p-5">
+        <div class="text-accent text-xs font-semibold mb-2">01 · Ingest</div>
+        <h3 class="text-sm font-semibold mb-1.5">Real GitHub PRs</h3>
+        <p class="text-xs text-muted leading-relaxed">Fetches metadata, changed files and patches via the GitHub REST API. Public repos work without a token.</p>
+      </div>
+      <div class="card p-5">
+        <div class="text-accent text-xs font-semibold mb-2">02 · Analyse</div>
+        <h3 class="text-sm font-semibold mb-1.5">Deterministic + AI</h3>
+        <p class="text-xs text-muted leading-relaxed">Static rules catch secrets and bare excepts. An optional AI reviewer adds structured observations — always labelled.</p>
+      </div>
+      <div class="card p-5">
+        <div class="text-accent text-xs font-semibold mb-2">03 · Verify</div>
+        <h3 class="text-sm font-semibold mb-1.5">ProofLayer</h3>
+        <p class="text-xs text-muted leading-relaxed">Every finding is checked for file path, evidence and support. AI-only claims stay <em>unverified</em>.</p>
+      </div>
+    </div>
+
+    <!-- ProofLayer explainer -->
+    <div id="prooflayer" class="card p-6 md:p-8">
+      <div class="flex flex-col md:flex-row md:items-start gap-8">
+        <div class="flex-1">
+          <p class="text-accent text-xs font-medium uppercase tracking-wide mb-2">Signature technology</p>
+          <h2 class="text-xl font-semibold mb-3">ProofLayer</h2>
+          <p class="text-sm text-muted leading-relaxed mb-4">
+            AI reviewers can invent line numbers and sound confident. ProofLayer is an independent validation
+            pipeline that records what was checked and what remains uncertain.
+          </p>
+          <ul class="space-y-2 text-sm">
+            <li class="flex gap-2"><span class="text-good">●</span> <span><strong class="text-slate-200">supported_by_static_check</strong> — deterministic rule + concrete evidence</span></li>
+            <li class="flex gap-2"><span class="text-warn">●</span> <span><strong class="text-slate-200">unverified</strong> — AI observation without independent proof</span></li>
+            <li class="flex gap-2"><span class="text-accent">●</span> <span><strong class="text-slate-200">needs_human_review</strong> — incomplete or ambiguous evidence</span></li>
+            <li class="flex gap-2"><span class="text-bad">●</span> <span><strong class="text-slate-200">rejected</strong> — invalid file reference</span></li>
+          </ul>
+          <p class="text-xs text-muted mt-4">Existence of a file or line reference is not treated as proof of a defect.</p>
+        </div>
+        <div class="md:w-72 card bg-panel2 p-4 text-xs space-y-2.5 border-line">
+          <div class="text-muted uppercase tracking-wide text-[10px] mb-1">Review Replay (example)</div>
+          <div class="flex gap-2 items-start"><span class="step-dot bg-good mt-1"></span><div><span class="text-slate-300">1. Source recorded</span><div class="text-muted">Deterministic analysis</div></div></div>
+          <div class="flex gap-2 items-start"><span class="step-dot bg-good mt-1"></span><div><span class="text-slate-300">2. File reference</span><div class="text-muted">Path exists in changed files</div></div></div>
+          <div class="flex gap-2 items-start"><span class="step-dot bg-good mt-1"></span><div><span class="text-slate-300">3. Evidence assessed</span><div class="text-muted">Excerpt located in diff</div></div></div>
+          <div class="flex gap-2 items-start"><span class="step-dot bg-good mt-1"></span><div><span class="text-slate-300">4. Support assessment</span><div class="text-muted">Text ≠ proof of defect</div></div></div>
+          <div class="flex gap-2 items-start"><span class="step-dot bg-good mt-1"></span><div><span class="text-slate-300">5. Final decision</span><div class="text-good">supported_by_static_check</div></div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Privacy -->
+    <div class="text-center text-xs text-muted max-w-lg mx-auto leading-relaxed">
+      Repository code is never executed on the server. Only <code class="text-slate-400">github.com</code> URLs are accepted.
+      No finding is presented as verified without supporting evidence.
+    </div>
   </section>
 
-  <!-- Summary -->
-  <section id="summarySection" class="hidden space-y-4">
+  <!-- RESULTS -->
+  <section id="results" class="hidden pt-8 space-y-6 fade-in">
+    <div class="flex flex-wrap items-center justify-between gap-3">
+      <div>
+        <button onclick="showLanding()" class="text-xs text-muted hover:text-accent mb-1">← New review</button>
+        <h2 class="text-lg font-semibold">Review results</h2>
+        <p id="resultMeta" class="text-xs text-muted font-mono mt-0.5"></p>
+      </div>
+      <div id="demoBanner" class="hidden text-xs badge bg-warn/15 text-warn border border-warn/30">Labelled demo data</div>
+    </div>
+
     <div class="grid grid-cols-2 md:grid-cols-4 gap-3" id="statCards"></div>
+
     <div class="card p-5" id="execSummary"></div>
+
     <div class="grid md:grid-cols-2 gap-4">
       <div class="card p-5" id="scorecardPanel"></div>
       <div class="card p-5" id="riskPanel"></div>
     </div>
-  </section>
 
-  <!-- Findings -->
-  <section id="findingsSection" class="hidden">
-    <div class="flex items-center justify-between mb-3">
-      <h2 class="text-lg font-semibold">Findings explorer</h2>
-      <div class="flex gap-2 text-xs">
-        <button data-filter="all" class="filter-btn badge bg-gray-700">All</button>
-        <button data-filter="supported_by_static_check" class="filter-btn badge bg-good/20 text-good">Static-supported</button>
-        <button data-filter="unverified" class="filter-btn badge bg-warn/20 text-warn">Unverified AI</button>
-        <button data-filter="needs_human_review" class="filter-btn badge bg-accent/20 text-accent">Human review</button>
+    <!-- Findings -->
+    <div>
+      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-3">
+        <h3 class="text-sm font-semibold">Findings explorer</h3>
+        <div class="flex flex-wrap gap-1.5" id="filterBar">
+          <button data-filter="all" class="filter-btn badge bg-slate-700/80 text-slate-200">All</button>
+          <button data-filter="supported_by_static_check" class="filter-btn badge bg-good/15 text-good">Static-supported</button>
+          <button data-filter="unverified" class="filter-btn badge bg-warn/15 text-warn">Unverified AI</button>
+          <button data-filter="needs_human_review" class="filter-btn badge bg-accent/15 text-accent">Human review</button>
+          <button data-filter="rejected" class="filter-btn badge bg-bad/15 text-bad">Rejected</button>
+        </div>
       </div>
+      <div id="findingsList" class="space-y-3"></div>
     </div>
-    <div id="findingsList" class="space-y-3"></div>
-  </section>
 
-  <!-- Tests + export -->
-  <section id="extraSection" class="hidden grid md:grid-cols-2 gap-4">
-    <div class="card p-5">
-      <h3 class="font-semibold mb-2">Test intelligence</h3>
-      <p class="text-xs text-gray-500 mb-3">Suggestions only — <strong>not executed</strong>.</p>
-      <ul id="testList" class="space-y-2 text-sm"></ul>
-    </div>
-    <div class="card p-5">
-      <h3 class="font-semibold mb-2">Reports</h3>
-      <div class="flex gap-2">
-        <button id="btnMd" class="rounded-lg border border-gray-600 px-4 py-2 text-sm hover:border-accent">Download Markdown</button>
-        <button id="btnJson" class="rounded-lg border border-gray-600 px-4 py-2 text-sm hover:border-accent">Download JSON</button>
+    <div class="grid md:grid-cols-2 gap-4">
+      <div class="card p-5">
+        <h3 class="text-sm font-semibold mb-1">Test intelligence</h3>
+        <p class="text-[11px] text-muted mb-3">Suggestions only — <span class="text-warn">not executed</span>.</p>
+        <ul id="testList" class="space-y-2 text-sm"></ul>
       </div>
-      <p class="text-xs text-gray-500 mt-3">Share findings with teammates without claiming verification you don't have.</p>
+      <div class="card p-5">
+        <h3 class="text-sm font-semibold mb-3">Export report</h3>
+        <div class="flex flex-wrap gap-2">
+          <button id="btnMd" class="btn-ghost rounded-lg px-4 py-2 text-xs">Markdown</button>
+          <button id="btnJson" class="btn-ghost rounded-lg px-4 py-2 text-xs">JSON</button>
+        </div>
+        <p class="text-[11px] text-muted mt-3">Share with teammates without overstating verification.</p>
+      </div>
     </div>
   </section>
 </main>
 
-<footer class="max-w-6xl mx-auto px-4 py-8 text-xs text-gray-600 border-t border-gray-900">
-  MergeMate · ProofLayer · No finding is presented as verified without evidence · MIT
+<footer class="border-t border-line mt-8">
+  <div class="max-w-5xl mx-auto px-4 py-6 flex flex-col sm:flex-row justify-between gap-2 text-[11px] text-muted">
+    <span>MergeMate · Evidence-first AI PR intelligence · MIT</span>
+    <span><a href="https://github.com/affanahmed2302-cmyk/mergemate" class="hover:text-accent" target="_blank" rel="noopener">Repository</a></span>
+  </div>
 </footer>
 
 <script>
@@ -95,149 +222,239 @@ let current = null;
 let filter = 'all';
 
 const $ = (id) => document.getElementById(id);
-const status = (msg, isErr) => { $('statusMsg').textContent = msg; $('statusMsg').className = 'mt-3 text-sm ' + (isErr ? 'text-bad' : 'text-gray-400'); };
 
-function badgeForStatus(s) {
-  const map = {
-    supported_by_static_check: 'bg-good/20 text-good',
-    unverified: 'bg-warn/20 text-warn',
-    needs_human_review: 'bg-accent/20 text-accent',
-    rejected: 'bg-bad/20 text-bad',
-    test_confirmed: 'bg-good/20 text-good',
-  };
-  return map[s] || 'bg-gray-700';
+function setStatus(msg, isErr, loading) {
+  const el = $('statusMsg');
+  if (loading) {
+    el.innerHTML = `<span class="spinner"></span><span>${msg}</span>`;
+    el.className = 'text-xs text-muted flex items-center gap-2';
+  } else {
+    el.textContent = msg || '';
+    el.className = 'text-xs flex items-center gap-2 ' + (isErr ? 'text-bad' : 'text-muted');
+  }
+}
+
+function showLanding() {
+  $('landing').classList.remove('hidden');
+  $('results').classList.add('hidden');
+}
+
+function showResults() {
+  $('landing').classList.add('hidden');
+  $('results').classList.remove('hidden');
+  $('results').classList.add('fade-in');
+}
+
+function badgeClass(s) {
+  return ({
+    supported_by_static_check: 'bg-good/15 text-good',
+    unverified: 'bg-warn/15 text-warn',
+    needs_human_review: 'bg-accent/15 text-accent',
+    rejected: 'bg-bad/15 text-bad',
+    test_confirmed: 'bg-good/15 text-good',
+  })[s] || 'bg-slate-700 text-slate-300';
+}
+
+function statusLabel(s) {
+  return ({
+    supported_by_static_check: 'Static-supported',
+    unverified: 'Unverified',
+    needs_human_review: 'Needs human review',
+    rejected: 'Rejected',
+    test_confirmed: 'Test confirmed',
+  })[s] || s;
 }
 
 function render(review) {
   current = review;
-  $('summarySection').classList.remove('hidden');
-  $('findingsSection').classList.remove('hidden');
-  $('extraSection').classList.remove('hidden');
+  showResults();
 
   const findings = review.findings || [];
   const staticN = findings.filter(f => f.verification_status === 'supported_by_static_check').length;
   const aiN = findings.filter(f => f.verification_status === 'unverified').length;
   const humanN = findings.filter(f => f.verification_status === 'needs_human_review').length;
 
+  $('demoBanner').classList.toggle('hidden', !review.is_demo);
+  const pi = review.pr_info;
+  $('resultMeta').textContent = pi
+    ? `${pi.owner}/${pi.repo}#${pi.number} · ${pi.title || ''}`
+    : review.pr_url;
+
   $('statCards').innerHTML = [
     ['Findings', findings.length, 'text-white'],
     ['Static-supported', staticN, 'text-good'],
     ['AI unverified', aiN, 'text-warn'],
     ['Human review', humanN, 'text-accent'],
-  ].map(([l,v,c]) => `<div class="card p-4"><div class="text-xs text-gray-500">${l}</div><div class="text-2xl font-semibold ${c}">${v}</div></div>`).join('');
+  ].map(([l,v,c]) =>
+    `<div class="card p-4"><div class="text-[11px] text-muted">${l}</div><div class="text-2xl font-semibold mt-1 ${c}">${v}</div></div>`
+  ).join('');
 
-  $('execSummary').innerHTML = `<h3 class="font-semibold mb-1">Executive summary</h3><p class="text-sm text-gray-300">${review.executive_summary || '—'}</p>` +
-    (review.pr_info ? `<p class="text-xs text-gray-500 mt-2 mono">${review.pr_info.owner}/${review.pr_info.repo}#${review.pr_info.number} · ${review.pr_info.title}</p>` : '');
+  $('execSummary').innerHTML =
+    `<h3 class="text-sm font-semibold mb-2">Executive summary</h3>
+     <p class="text-sm text-slate-300 leading-relaxed">${esc(review.executive_summary || '—')}</p>`;
 
   if (review.scorecard) {
     const sc = review.scorecard;
     $('scorecardPanel').innerHTML = `
-      <h3 class="font-semibold mb-2">Intelligence Scorecard</h3>
-      <div class="space-y-2 text-sm">
-        <div class="flex justify-between"><span>Evidence coverage</span><span class="text-accent">${Math.round(sc.evidence_coverage*100)}%</span></div>
-        <div class="flex justify-between"><span>Static analysis coverage</span><span>${Math.round(sc.static_analysis_coverage*100)}%</span></div>
-        <div class="flex justify-between"><span>Unverified ratio</span><span class="text-warn">${Math.round(sc.unverified_ratio*100)}%</span></div>
+      <h3 class="text-sm font-semibold mb-3">Intelligence Scorecard</h3>
+      <div class="space-y-2.5 text-sm">
+        ${row('Evidence coverage', Math.round(sc.evidence_coverage*100)+'%', 'text-accent')}
+        ${row('Static analysis coverage', Math.round(sc.static_analysis_coverage*100)+'%', '')}
+        ${row('Unverified ratio', Math.round(sc.unverified_ratio*100)+'%', 'text-warn')}
       </div>
-      <p class="text-xs text-gray-500 mt-3">${sc.disclaimer}</p>`;
+      <p class="text-[11px] text-muted mt-4 leading-relaxed">${esc(sc.disclaimer)}</p>`;
   }
 
   if (review.risk) {
     const r = review.risk;
+    const lc = r.level==='high'?'text-bad':r.level==='medium'?'text-warn':'text-good';
     $('riskPanel').innerHTML = `
-      <h3 class="font-semibold mb-2">Risk indicator</h3>
-      <div class="text-3xl font-semibold mb-1 ${r.level==='high'?'text-bad':r.level==='medium'?'text-warn':'text-good'}">${r.score} <span class="text-sm font-normal text-gray-400">(${r.level})</span></div>
-      <p class="text-xs mono text-gray-500 mb-2">${r.formula}</p>
-      <ul class="text-xs space-y-1 text-gray-400">${(r.factors||[]).map(f=>`<li>${f.explanation}</li>`).join('')}</ul>
-      <p class="text-xs text-gray-500 mt-3">${r.disclaimer}</p>`;
+      <h3 class="text-sm font-semibold mb-2">Risk indicator</h3>
+      <div class="text-3xl font-semibold ${lc}">${r.score}<span class="text-sm font-normal text-muted ml-2">${r.level}</span></div>
+      <p class="text-[11px] font-mono text-muted mt-2 mb-2">${esc(r.formula)}</p>
+      <ul class="text-xs text-muted space-y-1">${(r.factors||[]).map(f=>`<li>· ${esc(f.explanation)}</li>`).join('')}</ul>
+      <p class="text-[11px] text-muted mt-3">${esc(r.disclaimer)}</p>`;
   }
 
   renderFindings();
   $('testList').innerHTML = (review.test_suggestions||[]).map(t =>
-    `<li class="border border-gray-800 rounded-lg p-2"><div class="font-medium">${t.title}</div><div class="text-gray-500 text-xs">${t.rationale} · executed: <span class="text-warn">false</span></div></li>`
-  ).join('') || '<li class="text-gray-500">No suggestions</li>';
+    `<li class="rounded-lg border border-line p-2.5">
+      <div class="text-sm font-medium">${esc(t.title)}</div>
+      <div class="text-[11px] text-muted mt-0.5">${esc(t.rationale)} · executed: <span class="text-warn">false</span></div>
+    </li>`
+  ).join('') || '<li class="text-muted text-sm">No suggestions</li>';
+}
+
+function row(label, val, cls) {
+  return `<div class="flex justify-between gap-4"><span class="text-muted">${label}</span><span class="font-medium ${cls}">${val}</span></div>`;
+}
+
+function esc(s) {
+  const d = document.createElement('div');
+  d.textContent = s == null ? '' : String(s);
+  return d.innerHTML;
 }
 
 function renderFindings() {
+  if (!current) return;
   const list = (current.findings||[]).filter(f => filter==='all' || f.verification_status===filter);
+  if (!list.length) {
+    $('findingsList').innerHTML = '<div class="card p-6 text-center text-sm text-muted">No findings match this filter.</div>';
+    return;
+  }
   $('findingsList').innerHTML = list.map(f => {
     const steps = (f.proof_steps||[]).map(s =>
-      `<div class="flex gap-2 items-start text-xs"><span class="step-dot mt-1 ${s.status==='passed'?'bg-good':s.status==='partial'?'bg-warn':'bg-bad'}"></span><div><span class="text-gray-300">${s.step}. ${s.name}</span> — <span class="text-gray-500">${s.detail}</span></div></div>`
+      `<div class="flex gap-2.5 items-start">
+        <span class="step-dot mt-1.5 ${s.status==='passed'?'bg-good':s.status==='partial'?'bg-warn':'bg-bad'}"></span>
+        <div><div class="text-slate-300">${s.step}. ${esc(s.name)}</div><div class="text-muted">${esc(s.detail)}</div></div>
+      </div>`
     ).join('');
-    return `<div class="card p-4">
+    return `<article class="card p-4 md:p-5">
       <div class="flex flex-wrap items-center gap-2 mb-2">
-        <span class="font-medium">${f.title}</span>
-        <span class="badge ${badgeForStatus(f.verification_status)}">${f.verification_status}</span>
-        <span class="badge bg-gray-800">${f.source}</span>
-        <span class="badge bg-gray-800">${f.severity}</span>
+        <h4 class="text-sm font-semibold">${esc(f.title)}</h4>
+        <span class="badge ${badgeClass(f.verification_status)}">${statusLabel(f.verification_status)}</span>
+        <span class="badge bg-slate-800 text-slate-400">${esc(f.source)}</span>
+        <span class="badge bg-slate-800 text-slate-400">${esc(f.severity)}</span>
       </div>
-      <p class="text-sm text-gray-300 mb-2">${f.explanation}</p>
-      <p class="text-xs mono text-gray-500 mb-2">${f.file_path||'n/a'} · evidence: <code class="text-gray-400">${(f.evidence&&f.evidence.excerpt)||'none'}</code></p>
-      <details class="mt-2">
-        <summary class="text-xs text-accent cursor-pointer">ProofLayer — Review Replay</summary>
-        <div class="mt-2 space-y-1 border-l border-gray-700 pl-3">${steps||'<span class="text-xs text-gray-500">No steps</span>'}</div>
+      <p class="text-sm text-slate-300 leading-relaxed mb-2">${esc(f.explanation)}</p>
+      <p class="text-[11px] font-mono text-muted mb-1">${esc(f.file_path||'n/a')}</p>
+      <p class="text-[11px] text-muted mb-2">Evidence: <code class="text-slate-400">${esc((f.evidence&&f.evidence.excerpt)||'none')}</code></p>
+      ${f.suggested_fix ? `<p class="text-xs text-slate-400 mb-2"><span class="text-muted">Suggested fix:</span> ${esc(f.suggested_fix)}</p>` : ''}
+      <details class="mt-1 group">
+        <summary class="text-xs text-accent cursor-pointer select-none hover:underline">ProofLayer — Review Replay</summary>
+        <div class="mt-3 space-y-2 border-l border-line pl-3 text-xs">${steps || '<span class="text-muted">No steps recorded</span>'}</div>
       </details>
-      <div class="mt-3 flex gap-2 text-xs">
-        <button onclick="sendFeedback('${f.id}','useful')" class="badge bg-good/10 text-good border border-good/30">Useful</button>
-        <button onclick="sendFeedback('${f.id}','incorrect')" class="badge bg-bad/10 text-bad border border-bad/30">Incorrect</button>
-        <button onclick="sendFeedback('${f.id}','disputed')" class="badge bg-warn/10 text-warn border border-warn/30">Disputed</button>
-        ${f.feedback?`<span class="text-gray-500">Feedback: ${f.feedback}</span>`:''}
+      <div class="mt-3 flex flex-wrap gap-1.5 items-center">
+        <button type="button" data-fb="useful" data-id="${f.id}" class="fb-btn badge bg-good/10 text-good border border-good/25 hover:bg-good/20">Useful</button>
+        <button type="button" data-fb="incorrect" data-id="${f.id}" class="fb-btn badge bg-bad/10 text-bad border border-bad/25 hover:bg-bad/20">Incorrect</button>
+        <button type="button" data-fb="disputed" data-id="${f.id}" class="fb-btn badge bg-warn/10 text-warn border border-warn/25 hover:bg-warn/20">Disputed</button>
+        ${f.feedback ? `<span class="text-[11px] text-muted ml-1">Recorded: ${esc(f.feedback)}</span>` : ''}
       </div>
-    </div>`;
-  }).join('') || '<p class="text-gray-500">No findings for this filter.</p>';
+    </article>`;
+  }).join('');
+
+  document.querySelectorAll('.fb-btn').forEach(btn => {
+    btn.onclick = () => sendFeedback(btn.dataset.id, btn.dataset.fb);
+  });
 }
 
-async function analyze(url, demo=false) {
-  status(demo ? 'Running labelled demo…' : 'Analyzing PR…');
+async function analyze(url, demo) {
+  $('btnAnalyze').disabled = true;
+  $('btnDemo').disabled = true;
+  setStatus(demo ? 'Running labelled demo…' : 'Fetching and analysing PR…', false, true);
   try {
     const r = await fetch(API + '/api/v1/reviews', {
       method: 'POST',
-      headers: {'Content-Type':'application/json'},
-      body: JSON.stringify({pr_url: url, demo})
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ pr_url: url, demo: !!demo }),
     });
-    const data = await r.json();
-    if (!r.ok) throw new Error(data.message || data.detail || 'Request failed');
-    status(data.is_demo ? 'Demo complete — labelled sample data' : 'Analysis complete');
+    let data;
+    try { data = await r.json(); } catch { throw new Error('Invalid response from API'); }
+    if (!r.ok) throw new Error(data.message || data.detail || `HTTP ${r.status}`);
+    setStatus(data.is_demo ? 'Demo complete — labelled sample data' : 'Analysis complete');
     render(data);
   } catch (e) {
-    status(String(e.message || e), true);
+    const msg = String(e.message || e);
+    const hint = msg.includes('Failed to fetch') || msg.includes('NetworkError')
+      ? ' — is the backend running on port 8000?'
+      : '';
+    setStatus(msg + hint, true);
+  } finally {
+    $('btnAnalyze').disabled = false;
+    $('btnDemo').disabled = false;
   }
 }
 
 async function sendFeedback(fid, fb) {
   if (!current) return;
   try {
-    await fetch(`${API}/api/v1/reviews/${current.id}/findings/${fid}/feedback`, {
-      method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({feedback: fb})
+    const r = await fetch(`${API}/api/v1/reviews/${current.id}/findings/${fid}/feedback`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ feedback: fb }),
     });
+    if (!r.ok) throw new Error('Feedback failed');
     const f = current.findings.find(x => x.id === fid);
     if (f) f.feedback = fb;
     renderFindings();
-  } catch (e) { status(String(e), true); }
+  } catch (e) {
+    setStatus(String(e.message || e), true);
+  }
 }
 
 $('btnAnalyze').onclick = () => {
   const url = $('prUrl').value.trim();
-  if (!url) return status('Enter a GitHub PR URL', true);
+  if (!url) return setStatus('Enter a GitHub PR URL', true);
   analyze(url, false);
 };
 $('btnDemo').onclick = () => analyze('demo', true);
+$('prUrl').addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') $('btnAnalyze').click();
+});
 
-document.querySelectorAll('.filter-btn').forEach(b => b.onclick = () => { filter = b.dataset.filter; renderFindings(); });
+document.querySelectorAll('.filter-btn').forEach(b => {
+  b.addEventListener('click', () => {
+    filter = b.dataset.filter;
+    renderFindings();
+  });
+});
 
 $('btnMd').onclick = async () => {
   if (!current) return;
-  const r = await fetch(`${API}/api/v1/reviews/${current.id}/report.md`);
-  const text = await r.text();
-  const a = document.createElement('a');
-  a.href = URL.createObjectURL(new Blob([text], {type:'text/markdown'}));
-  a.download = `mergemate-${current.id}.md`;
-  a.click();
+  try {
+    const r = await fetch(`${API}/api/v1/reviews/${current.id}/report.md`);
+    const text = await r.text();
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob([text], { type: 'text/markdown' }));
+    a.download = `mergemate-${current.id.slice(0,8)}.md`;
+    a.click();
+  } catch (e) { setStatus(String(e.message || e), true); }
 };
 $('btnJson').onclick = () => {
   if (!current) return;
   const a = document.createElement('a');
-  a.href = URL.createObjectURL(new Blob([JSON.stringify(current, null, 2)], {type:'application/json'}));
-  a.download = `mergemate-${current.id}.json`;
+  a.href = URL.createObjectURL(new Blob([JSON.stringify(current, null, 2)], { type: 'application/json' }));
+  a.download = `mergemate-${current.id.slice(0,8)}.json`;
   a.click();
 };
 </script>
